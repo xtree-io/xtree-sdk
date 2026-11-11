@@ -3,7 +3,19 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const CANDIDATES = [join(HERE, '..'), join(HERE, '..', '..')];
+const ROOT = CANDIDATES.find((p) => {
+  try {
+    readFileSync(join(p, 'openapi', 'spec', 'openapi.json'));
+    return true;
+  } catch {
+    return false;
+  }
+});
+if (!ROOT) {
+  throw new Error('openapi/spec/openapi.json not found near tests/');
+}
 const SPEC = join(ROOT, 'openapi', 'spec', 'openapi.json');
 
 /** Keep in sync with sdk/python/xtree/registry.py */
@@ -19,7 +31,6 @@ const COVERED_ENDPOINTS: Array<[string, string]> = [
   ['POST', '/bilibili/videos/comments'],
   ['POST', '/bilibili/videos/detail'],
   ['POST', '/bilibili/videos/download'],
-  ['POST', '/media/transcribe'],
   ['POST', '/douyin/ids/resolve'],
   ['POST', '/douyin/search/suggestions'],
   ['POST', '/douyin/search/users'],
@@ -45,6 +56,7 @@ const COVERED_ENDPOINTS: Array<[string, string]> = [
   ['POST', '/kuaishou/videos/comments'],
   ['POST', '/kuaishou/videos/detail'],
   ['POST', '/kuaishou/videos/short-link'],
+  ['POST', '/media/transcribe'],
   ['POST', '/pdd/items/comments/fetch'],
   ['POST', '/pdd/items/comments/status'],
   ['POST', '/pdd/items/comments/submit'],
@@ -69,9 +81,9 @@ const COVERED_ENDPOINTS: Array<[string, string]> = [
   ['POST', '/wechat/accounts/principal'],
   ['POST', '/wechat/accounts/profile'],
   ['POST', '/wechat/accounts/search'],
-  ['POST', '/wechat/accounts/search/gh'],
   ['POST', '/wechat/accounts/search-by-owner'],
   ['POST', '/wechat/accounts/search-by-owner/live'],
+  ['POST', '/wechat/accounts/search/gh'],
   ['POST', '/wechat/articles/comments'],
   ['POST', '/wechat/articles/detail'],
   ['POST', '/wechat/articles/detail-with-video'],
@@ -132,7 +144,9 @@ const COVERED_ENDPOINTS: Array<[string, string]> = [
   ['POST', '/youtube/channels/streams'],
   ['POST', '/youtube/channels/videos'],
   ['POST', '/youtube/search/channels'],
+  ['POST', '/youtube/search/videos'],
   ['POST', '/youtube/videos/download'],
+  ['POST', '/youtube/videos/transcript'],
 ]
 
 function openapiOperations(spec: Record<string, unknown>): Array<[string, string]> {
@@ -153,12 +167,12 @@ function openapiOperations(spec: Record<string, unknown>): Array<[string, string
 }
 
 describe('SDK registry vs OpenAPI', () => {
-  it('covers all 122 operations', () => {
+  it('covers all openapi operations', () => {
     const spec = JSON.parse(readFileSync(SPEC, 'utf8')) as Record<string, unknown>;
     const openapiOps = new Set(openapiOperations(spec).map((x) => JSON.stringify(x)));
     const covered = new Set(COVERED_ENDPOINTS.map((x) => JSON.stringify(x)));
-    expect(openapiOps.size).toBe(122);
-    expect(covered.size).toBe(122);
+    expect(openapiOps.size).toBe(127);
+    expect(covered.size).toBe(127);
     expect(openapiOps).toEqual(covered);
   });
 });
