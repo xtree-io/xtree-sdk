@@ -34,7 +34,9 @@ export class XTreeAuthError extends XTreeError {}
 export class XTreeValidationError extends XTreeError {}
 export class XTreeInsufficientBalanceError extends XTreeError {}
 export class XTreeRateLimitError extends XTreeError {}
-export class XTreeUpstreamError extends XTreeError {}
+export class XTreeServiceError extends XTreeError {}
+/** 旧名保留，便于已有 catch 继续接住 502。 */
+export const XTreeUpstreamError = XTreeServiceError;
 
 const ERROR_MAP: Record<string, typeof XTreeError> = {
   UNAUTHORIZED: XTreeAuthError,
@@ -42,9 +44,8 @@ const ERROR_MAP: Record<string, typeof XTreeError> = {
   VALIDATION_ERROR: XTreeValidationError,
   INSUFFICIENT_BALANCE: XTreeInsufficientBalanceError,
   RATE_LIMITED: XTreeRateLimitError,
-  UPSTREAM_ERROR: XTreeUpstreamError,
-  EDGE_UNAVAILABLE: XTreeUpstreamError,
-  INTERNAL_ERROR: XTreeError,
+  UPSTREAM_ERROR: XTreeServiceError,
+  EDGE_UNAVAILABLE: XTreeServiceError,
   NOT_FOUND: XTreeError,
 };
 
@@ -65,6 +66,13 @@ export function parseMeta(raw: Record<string, unknown> = {}): ResponseMeta {
     costCny: optionalNumber(raw.cost_cny),
     balanceCny: optionalNumber(raw.balance_cny),
     rateLimitRemaining: optionalInt(raw.rate_limit_remaining),
+    observationId: optionalString(raw.observation_id),
+    observedAt: optionalString(raw.observed_at),
+    basis: optionalString(raw.basis),
+    contractRev: optionalInt(raw.contract_rev),
+    origin: optionalString(raw.origin),
+    cacheHit: optionalBool(raw.cache_hit),
+    cacheAgeSec: optionalInt(raw.cache_age_sec),
   };
 }
 
@@ -78,6 +86,16 @@ function optionalInt(value: unknown): number | undefined {
   return parseInt(String(value), 10);
 }
 
+function optionalString(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  return String(value);
+}
+
+function optionalBool(value: unknown): boolean | undefined {
+  if (value === null || value === undefined) return undefined;
+  return Boolean(value);
+}
+
 export function errorFromEnvelope(
   payload: EnvelopePayload,
   statusCode?: number,
@@ -87,7 +105,10 @@ export function errorFromEnvelope(
   const message = String(err.message ?? 'API request failed');
   const meta = payload.meta ?? {};
   const requestId = meta.request_id ? String(meta.request_id) : undefined;
-  const Cls = ERROR_MAP[code] ?? XTreeError;
+  let Cls = ERROR_MAP[code] ?? XTreeError;
+  if (code === 'INTERNAL_ERROR' && statusCode === 502) {
+    Cls = XTreeServiceError;
+  }
   return new Cls(message, {
     code,
     statusCode,

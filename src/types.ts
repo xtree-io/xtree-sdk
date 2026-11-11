@@ -8,6 +8,13 @@ export interface ResponseMeta {
   costCny?: number;
   balanceCny?: number;
   rateLimitRemaining?: number;
+  observationId?: string;
+  observedAt?: string;
+  basis?: string;
+  contractRev?: number;
+  origin?: string;
+  cacheHit?: boolean;
+  cacheAgeSec?: number;
 }
 
 export interface APIResponse<T = unknown> {
